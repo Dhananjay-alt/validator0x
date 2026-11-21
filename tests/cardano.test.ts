@@ -1,4 +1,5 @@
-import { validateAddress, CardanoValidator } from '../src';
+import { bech32 } from '@scure/base';
+import { validateAddress, CardanoValidator, ValidationError } from '../src';
 import vectors from './fixtures/protocol-vectors.json';
 
 // Published Byron example from CIP-19 (testnet).
@@ -20,5 +21,42 @@ describe('Cardano', () => {
         const address = vectors.cardano[0];
         expect(new CardanoValidator().format(address)).toBe(address);
         expect(new CardanoValidator().format(address, { shorten: true })).toBe(address.slice(0, 8) + '...' + address.slice(-8));
+    });
+});
+
+// Re-encode a published CIP-19 vector with a different header byte, keeping its payload.
+function withHeader(address: string, header: number): string {
+    const { prefix, words } = bech32.decode(address as `${string}1${string}`, 256);
+    const bytes = Uint8Array.from(bech32.fromWords(words));
+    bytes[0] = header;
+    return bech32.encode(prefix, bech32.toWords(bytes), 256);
+}
+
+describe('Cardano network tags and network options', () => {
+    const mainnetBase = vectors.cardano[0];
+    const testnetBase = vectors.cardano[10];
+
+    test('re-encoding the vector with its own header is still valid (control)', () => {
+        expect(validateAddress(withHeader(mainnetBase, 0x01), 'cardano').valid).toBe(true);
+    });
+
+    test.each([2, 3, 7, 14, 15])('rejects reserved network tag %i in a Shelley header', tag => {
+        expect(validateAddress(withHeader(mainnetBase, tag), 'cardano')).toMatchObject({ valid: false, details: { errorCode: ValidationError.INVALID_FORMAT } });
+    });
+
+    test('NETWORK_MISMATCH keeps the decoded Cardano network and format', () => {
+        expect(validateAddress(testnetBase, 'cardano', { network: 'mainnet' })).toEqual({
+            valid: false,
+            error: 'Address network does not match the requested network',
+            details: { format: 'shelley', network: 'testnet', checksum: true, errorCode: ValidationError.NETWORK_MISMATCH },
+        });
+        expect(validateAddress(mainnetBase, 'cardano', { network: 'testnet' }).details).toMatchObject({ format: 'shelley', network: 'mainnet', errorCode: ValidationError.NETWORK_MISMATCH });
+        expect(validateAddress(byron, 'cardano', { network: 'mainnet' }).details).toMatchObject({ format: 'byron', network: 'testnet', errorCode: ValidationError.NETWORK_MISMATCH });
+    });
+
+    test("an explicit network: 'auto' accepts both networks", () => {
+        for (const address of [mainnetBase, testnetBase, byron]) {
+            expect(validateAddress(address, 'cardano', { network: 'auto' }).valid).toBe(true);
+        }
     });
 });
