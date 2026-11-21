@@ -8,91 +8,48 @@ const K = new Uint32Array([
     0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ]);
-const W = new Uint32Array(64);
+const W = new Int32Array(64);
 
+/** SHA-256 over bytes. Inputs here are short (Base58Check payloads), so one buffer holds message and padding. */
 export function sha256(input: Uint8Array): Uint8Array {
-    const H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
-
-    const len = input.length * 8;
-    const lenByte = input.length;
-
-    // Padding
-    const padding = new Uint8Array(64 - ((lenByte + 8) % 64) + 8);
-    padding[0] = 0x80;
-
-    // Length in bits (Big Endian 64 bit)
-    // Javascript numbers are doubles limited to 53 bits integer precision.
-    // For small inputs it's fine.
-    const l = len;
-    const high = Math.floor(l / 4294967296);
-    const low = l % 4294967296;
-
-    const pLen = padding.length;
-    padding[pLen - 4] = (low >>> 24) & 0xff;
-    padding[pLen - 3] = (low >>> 16) & 0xff;
-    padding[pLen - 2] = (low >>> 8) & 0xff;
-    padding[pLen - 1] = low & 0xff;
-
-    padding[pLen - 8] = (high >>> 24) & 0xff;
-    padding[pLen - 7] = (high >>> 16) & 0xff;
-    padding[pLen - 6] = (high >>> 8) & 0xff;
-    padding[pLen - 5] = high & 0xff;
-
-    const msg = new Uint8Array(lenByte + padding.length);
+    const length = input.length;
+    const msg = new Uint8Array(((length + 72) >>> 6) << 6);
     msg.set(input);
-    msg.set(padding, lenByte);
+    msg[length] = 0x80;
+    // Big-endian 64-bit bit length; the high word only matters beyond 512 MiB.
+    const bits = length * 8;
+    const end = msg.length;
+    const high = Math.floor(bits / 4294967296);
+    msg[end - 8] = high >>> 24; msg[end - 7] = high >>> 16; msg[end - 6] = high >>> 8; msg[end - 5] = high;
+    msg[end - 4] = bits >>> 24; msg[end - 3] = bits >>> 16; msg[end - 2] = bits >>> 8; msg[end - 1] = bits;
 
-    for (let i = 0; i < msg.length; i += 64) {
-        // Prepare message schedule
-        for (let t = 0; t < 16; t++) {
-            W[t] = (msg[i + t * 4] << 24) | (msg[i + t * 4 + 1] << 16) | (msg[i + t * 4 + 2] << 8) | (msg[i + t * 4 + 3]);
-        }
+    let h0 = 0x6a09e667, h1 = 0xbb67ae85 | 0, h2 = 0x3c6ef372, h3 = 0xa54ff53a | 0;
+    let h4 = 0x510e527f, h5 = 0x9b05688c | 0, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+    for (let offset = 0; offset < end; offset += 64) {
+        for (let t = 0, i = offset; t < 16; t++, i += 4) W[t] = (msg[i] << 24) | (msg[i + 1] << 16) | (msg[i + 2] << 8) | msg[i + 3];
         for (let t = 16; t < 64; t++) {
-            const s1 = rro(W[t - 2], 17) ^ rro(W[t - 2], 19) ^ (W[t - 2] >>> 10);
-            const s0 = rro(W[t - 15], 7) ^ rro(W[t - 15], 18) ^ (W[t - 15] >>> 3);
-            W[t] = (s1 + W[t - 7] + s0 + W[t - 16]) | 0;
+            const a = W[t - 15], b = W[t - 2];
+            const s0 = ((a >>> 7) | (a << 25)) ^ ((a >>> 18) | (a << 14)) ^ (a >>> 3);
+            const s1 = ((b >>> 17) | (b << 15)) ^ ((b >>> 19) | (b << 13)) ^ (b >>> 10);
+            W[t] = (W[t - 16] + s0 + W[t - 7] + s1) | 0;
         }
-
-        let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
-
+        let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
         for (let t = 0; t < 64; t++) {
-            const S1 = rro(e, 6) ^ rro(e, 11) ^ rro(e, 25);
-            const ch = (e & f) ^ ((~e) & g);
-            const temp1 = (h + S1 + ch + K[t] + W[t]) | 0;
-            const S0 = rro(a, 2) ^ rro(a, 13) ^ rro(a, 22);
-            const maj = (a & b) ^ (a & c) ^ (b & c);
-            const temp2 = (S0 + maj) | 0;
-
-            h = g;
-            g = f;
-            f = e;
-            e = (d + temp1) | 0;
-            d = c;
-            c = b;
-            b = a;
-            a = (temp1 + temp2) | 0;
+            const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+            const t1 = (h + S1 + ((e & f) ^ (~e & g)) + K[t] + W[t]) | 0;
+            const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+            const t2 = (S0 + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+            h = g; g = f; f = e; e = (d + t1) | 0;
+            d = c; c = b; b = a; a = (t1 + t2) | 0;
         }
-
-        H[0] = (H[0] + a) | 0;
-        H[1] = (H[1] + b) | 0;
-        H[2] = (H[2] + c) | 0;
-        H[3] = (H[3] + d) | 0;
-        H[4] = (H[4] + e) | 0;
-        H[5] = (H[5] + f) | 0;
-        H[6] = (H[6] + g) | 0;
-        H[7] = (H[7] + h) | 0;
+        h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
+        h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
     }
-
-    const res = new Uint8Array(32);
+    const out = new Uint8Array(32);
+    const words = [h0, h1, h2, h3, h4, h5, h6, h7];
     for (let i = 0; i < 8; i++) {
-        res[i * 4] = (H[i] >>> 24) & 0xff;
-        res[i * 4 + 1] = (H[i] >>> 16) & 0xff;
-        res[i * 4 + 2] = (H[i] >>> 8) & 0xff;
-        res[i * 4 + 3] = H[i] & 0xff;
+        const w = words[i];
+        out[i * 4] = w >>> 24; out[i * 4 + 1] = w >>> 16; out[i * 4 + 2] = w >>> 8; out[i * 4 + 3] = w;
     }
-    return res;
-}
-
-function rro(val: number, bits: number) {
-    return (val >>> bits) | (val << (32 - bits));
+    return out;
 }

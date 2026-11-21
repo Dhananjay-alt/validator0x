@@ -6,36 +6,16 @@ export enum Bech32Encoding {
 }
 
 const GENERATOR = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+const BECH32_CONST = 1;
+const BECH32M_CONST = 0x2bc830a3;
+const CHARSET_REV = new Int8Array(128).fill(-1);
+for (let i = 0; i < BECH32_ALPHABET.length; i++) CHARSET_REV[BECH32_ALPHABET.charCodeAt(i)] = i;
 
-function polymod(values: number[]): number {
-    let chk = 1;
-    for (const v of values) {
-        const top = chk >> 25;
-        chk = ((chk & 0x1ffffff) << 5) ^ v;
-        for (let i = 0; i < 5; i++) {
-            if ((top >> i) & 1) {
-                chk ^= GENERATOR[i];
-            }
-        }
-    }
+function polymodStep(chk: number, value: number): number {
+    const top = chk >>> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ value;
+    for (let i = 0; i < 5; i++) if ((top >>> i) & 1) chk ^= GENERATOR[i];
     return chk;
-}
-
-function hrpExpand(hrp: string): number[] {
-    const ret: number[] = [];
-    for (let i = 0; i < hrp.length; i++) {
-        ret.push(hrp.charCodeAt(i) >> 5);
-    }
-    ret.push(0);
-    for (let i = 0; i < hrp.length; i++) {
-        ret.push(hrp.charCodeAt(i) & 31);
-    }
-    return ret;
-}
-
-function verifyChecksum(hrp: string, data: number[], encoding: Bech32Encoding): boolean {
-    const constValue = encoding === Bech32Encoding.BECH32M ? 0x2bc830a3 : 1;
-    return polymod(hrpExpand(hrp).concat(data)) === constValue;
 }
 
 export interface Decoded {
@@ -54,27 +34,30 @@ export function decodeBech32(str: string, limit = 90): Decoded | null {
     const pos = lower.lastIndexOf('1');
     if (pos < 1 || pos + 7 > lower.length) return null;
 
-    const hrp = lower.substring(0, pos);
-    if (/[^\x21-\x7E]/.test(hrp)) return null;
+    // Checksum over the expanded HRP (high bits, separator, low bits), then the data words.
+    let chk = 1;
+    for (let i = 0; i < pos; i++) {
+        const code = lower.charCodeAt(i);
+        if (code < 0x21 || code > 0x7e) return null;
+        chk = polymodStep(chk, code >>> 5);
+    }
+    chk = polymodStep(chk, 0);
+    for (let i = 0; i < pos; i++) chk = polymodStep(chk, lower.charCodeAt(i) & 31);
 
     const data: number[] = [];
     for (let i = pos + 1; i < lower.length; i++) {
-        const d = BECH32_ALPHABET.indexOf(lower[i]);
+        const code = lower.charCodeAt(i);
+        const d = code < 128 ? CHARSET_REV[code] : -1;
         if (d === -1) return null;
+        chk = polymodStep(chk, d);
         data.push(d);
     }
 
-    // Try Bech32
-    if (verifyChecksum(hrp, data, Bech32Encoding.BECH32)) {
-        return { hrp, data: data.slice(0, data.length - 6), encoding: Bech32Encoding.BECH32 };
-    }
-
-    // Try Bech32m
-    if (verifyChecksum(hrp, data, Bech32Encoding.BECH32M)) {
-        return { hrp, data: data.slice(0, data.length - 6), encoding: Bech32Encoding.BECH32M };
-    }
-
-    return null;
+    // One pass decides both variants: the residue is 1 for Bech32 and 0x2bc830a3 for Bech32m.
+    const encoding = chk === BECH32_CONST ? Bech32Encoding.BECH32 : chk === BECH32M_CONST ? Bech32Encoding.BECH32M : null;
+    if (!encoding) return null;
+    data.length -= 6;
+    return { hrp: lower.substring(0, pos), data, encoding };
 }
 
 /** Convert Bech32 words to bytes, rejecting excess or nonzero padding (BIP-173). */

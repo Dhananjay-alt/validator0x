@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- An invalid `network` option (anything other than `'mainnet'`, `'testnet'`, or `'auto'`) throws a `RangeError` instead of reporting `NETWORK_MISMATCH`.
+- Valid Ripple results include `details: { format: 'classic', checksum: true }`.
+- Outside strict mode, uniform-case EVM addresses are accepted without hashing. `details.checksum` is `true` only for a verified mixed-case checksum or an address without hex letters.
+
+### Performance
+
+- Keccak-256 no longer uses BigInt; SHA-256 and Bech32 avoid per-call allocations, and Bech32 verifies both checksum variants in one pass.
+- `detectBlockchain` skips validators whose cheap preconditions fail; results and their order are unchanged.
+- Throughput versus 0.4.0 (`npm run benchmark`, Node 24): checksummed EVM about 11x, lowercase EVM over 200x, Bitcoin legacy and TRON about 2.3x, Bech32/Cosmos/Solana about 1.5-1.7x, `detectBlockchain` 2.4-10x.
+
 ## 0.4.0
 
 - JavaScript EVM and Cosmos constructors reject unsupported family identifiers.

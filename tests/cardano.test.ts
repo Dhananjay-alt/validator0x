@@ -1,6 +1,7 @@
 import { bech32, bech32m } from '@scure/base';
 import { validateAddress, CardanoValidator } from '../src';
 import { decodeBech32 } from '../src/utils/bech32';
+import { byronNetwork } from '../src/utils/byron';
 import vectors from './fixtures/protocol-vectors.json';
 
 // Published Byron example from CIP-19 (testnet).
@@ -71,5 +72,18 @@ describe('Cardano Shelley', () => {
         ['Bech32m checksum', shelley(0x61, [], 'addr', bech32m)],
     ])('rejects %s', (_, address) => {
         expect(validateAddress(address, 'cardano').valid).toBe(false);
+    });
+});
+
+describe('Byron envelope precheck', () => {
+    test('rejects empty and non-array CBOR without parsing', () => {
+        for (const data of [new Uint8Array(0), Uint8Array.of(0x00), Uint8Array.of(0x58, 0x1c), Uint8Array.of(0xa1, 0x00)]) {
+            expect(byronNetwork(data)).toBeNull();
+        }
+    });
+
+    test('still parses arrays, including non-minimal array headers, before rejecting them', () => {
+        expect(byronNetwork(Uint8Array.of(0x98, 0x02, 0xd8, 0x18))).toBeNull();
+        expect(byronNetwork(Uint8Array.of(0x82))).toBeNull();
     });
 });

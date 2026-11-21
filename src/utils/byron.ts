@@ -37,6 +37,9 @@ function crc32(data: Uint8Array): number {
 }
 
 export function byronNetwork(data: Uint8Array): 'mainnet' | 'testnet' | null {
+    // The envelope is a CBOR array (major type 4). Reject other input before the reader throws:
+    // most Base58 strings reach here during detection, and exceptions are expensive.
+    if (data.length === 0 || data[0] >>> 5 !== 4) return null;
     try {
         const envelope = new Reader(data);
         if (envelope.head(4) !== 2 || envelope.head(6) !== 24) return null;
