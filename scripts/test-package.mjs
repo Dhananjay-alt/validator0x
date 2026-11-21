@@ -123,7 +123,8 @@ try {
     const solanaSize = gzipSync(solanaModule).length;
     const workerCode = `import { SolanaValidator } from './solana.mjs';
         postMessage(new SolanaValidator().validate('HN7cABqLq46Es1jh92dQQy4aWDtG751BHhP1K2HWT7k1').valid);`;
-    const chrome = await chromium.launch({ channel: 'chrome' });
+    // Prefer the installed Chrome (CI runners ship it); fall back to Playwright's bundled Chromium.
+    const chrome = await chromium.launch({ channel: 'chrome' }).catch(() => chromium.launch());
     const server = createServer((request, response) => {
         if (request.url === '/') {
             response.setHeader('Content-Type', 'text/html');

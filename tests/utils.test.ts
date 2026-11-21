@@ -1,4 +1,6 @@
-import { encodeBase58, decodeBase58 } from '../src/utils/base58';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { encodeBase58, decodeBase58, createBase58Decoder } from '../src/utils/base58';
+import { decodeBase58Check } from '../src/utils/base58check';
 import { isHex, stripHexPrefix, addHexPrefix } from '../src/utils/hex';
 import { decodeBech32 } from '../src/utils/bech32';
 import { keccak256 } from '../src/utils/keccak256';
@@ -67,3 +69,44 @@ describe('Utils', () => {
     });
 });
 
+describe('Keccak-256', () => {
+    test.each([
+        ['', 'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470'],
+        ['abc', '4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45'],
+    ])('matches the published digest of %j', (input, digest) => {
+        expect(keccak256(input)).toBe(digest);
+    });
+
+    // 135, 136 and 137 bytes straddle the 136-byte rate; 272+ spans several blocks.
+    test.each([1, 40, 135, 136, 137, 271, 272, 273, 500])('matches @noble/hashes for %i-byte input', length => {
+        const input = 'x'.repeat(length);
+        expect(keccak256(input)).toBe(Buffer.from(keccak_256(new TextEncoder().encode(input))).toString('hex'));
+    });
+});
+
+describe('Base58 decoding', () => {
+    test('preserves leading zero bytes and handles all-zero input', () => {
+        expect(Array.from(decodeBase58('1112'))).toEqual([0, 0, 0, 1]);
+        expect(Array.from(decodeBase58('111'))).toEqual([0, 0, 0]);
+        expect(decodeBase58('')).toHaveLength(0);
+    });
+
+    test('rejects characters outside the alphabet, including non-ASCII', () => {
+        for (const invalid of ['0', 'O', 'I', 'l', '+', '\u00e9', '\u{1F600}']) {
+            expect(() => decodeBase58('2' + invalid)).toThrow('Invalid Base58 character');
+        }
+    });
+
+    test('supports custom alphabets', () => {
+        const decode = createBase58Decoder('rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz');
+        expect(Array.from(decode('rrp'))).toEqual([0, 0, 1]);
+        expect(() => decode('r1l')).toThrow();
+    });
+
+    test('Base58Check returns null instead of throwing on bad input', () => {
+        expect(decodeBase58Check('0OIl')).toBeNull();
+        expect(decodeBase58Check('2')).toBeNull();
+        expect(decodeBase58Check('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNb')).toBeNull();
+        expect(decodeBase58Check('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toHaveLength(21);
+    });
+});
