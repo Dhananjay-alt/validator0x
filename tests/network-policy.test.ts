@@ -1,4 +1,4 @@
-import { validateAddress, validateBatch, formatAddress, ValidationError } from '../src';
+import { validateAddress, validateBatch, detectBlockchain, formatAddress, BitcoinValidator, ValidationError } from '../src';
 
 const mainnet = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const testnet = 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx';
@@ -40,6 +40,27 @@ describe('Network policy', () => {
         expect(() => validateAddress(mainnet, 'bitcoin', options)).toThrow(RangeError);
         expect(() => validateAddress(evm, 'ethereum', options)).toThrow('Invalid network option');
         expect(() => validateBatch([mainnet], 'bitcoin', options)).toThrow(RangeError);
+    });
+
+    test.each(['foo', 'Mainnet', ''])('throws for invalid network %j regardless of the input', network => {
+        const options = { network } as never;
+        // Empty batches, and empty, blank, unsafe or non-string detection input, still report the option error.
+        expect(() => validateBatch([], 'bitcoin', options)).toThrow(RangeError);
+        expect(() => validateBatch([], 'ethereum', options)).toThrow(RangeError);
+        for (const input of ['', '   ', 'bad\x00input', null, undefined, 42, mainnet, evm]) {
+            expect(() => detectBlockchain(input, options)).toThrow(RangeError);
+            expect(() => validateAddress(input, 'bitcoin', options)).toThrow(RangeError);
+        }
+        expect(() => new BitcoinValidator().validate('', options)).toThrow(RangeError);
+    });
+
+    test('valid options never throw on empty or unsafe input', () => {
+        for (const network of [undefined, 'mainnet', 'testnet', 'auto'] as const) {
+            expect(validateBatch([], 'bitcoin', { network })).toEqual([]);
+            expect(detectBlockchain('', { network })).toBeNull();
+            expect(detectBlockchain(null, { network })).toBeNull();
+            expect(validateAddress('', 'bitcoin', { network }).valid).toBe(false);
+        }
     });
 
     test('an explicit undefined network behaves like auto', () => {

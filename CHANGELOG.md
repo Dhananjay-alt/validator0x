@@ -4,7 +4,7 @@
 
 ### Changed
 
-- An invalid `network` option (anything other than `'mainnet'`, `'testnet'`, or `'auto'`) throws a `RangeError` instead of reporting `NETWORK_MISMATCH`.
+- An invalid `network` option (anything other than `'mainnet'`, `'testnet'`, or `'auto'`) throws a `RangeError` instead of reporting `NETWORK_MISMATCH`. Validation, batch validation, and detection check the option before reading input, so empty batches and empty or unsafe input throw too.
 - Valid Ripple results include `details: { format: 'classic', checksum: true }`.
 - Outside strict mode, uniform-case EVM addresses are accepted without hashing. `details.checksum` is `true` only for a verified mixed-case checksum or an address without hex letters.
 

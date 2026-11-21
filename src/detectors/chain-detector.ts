@@ -1,6 +1,7 @@
 import { BlockchainType, ValidationOptions, EVM_CHAINS, COSMOS_CHAINS } from '../types';
 import { getValidator } from '../registry';
 import { InputSanitizer } from '../security/sanitizer';
+import { assertValidationOptions } from '../validators/base';
 
 const BASE58 = /^[1-9A-HJ-NP-Za-km-z]+$/;
 const COSMOS_PREFIXES: Readonly<Record<(typeof COSMOS_CHAINS)[number], string>> = { cosmos: 'cosmos1', osmosis: 'osmo1', celestia: 'celestia1', injective: 'inj1', sei: 'sei1' };
@@ -29,6 +30,8 @@ const CANDIDATES: ReadonlyArray<readonly [BlockchainType, (input: string, f: Fea
 
 /** Format candidates only: never use detection as proof of a destination's chain. */
 export function detectBlockchain(address: unknown, options?: ValidationOptions): BlockchainType | BlockchainType[] | null {
+    // Check options before the input, so empty or unsafe input cannot hide a misconfiguration.
+    assertValidationOptions(options);
     let safe: string;
     try { safe = InputSanitizer.sanitize(address); } catch { return null; }
     if (!safe) return null;
