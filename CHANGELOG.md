@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- JavaScript EVM and Cosmos constructors reject unsupported family identifiers.
+- Sparse batches produce an invalid result at each missing index.
+- Cardano pointer fields enforce the strict ledger limits for slots and indices.
+- Root and family imports share validator classes within each module format. The packed consumer checks exercise a bundled ESM family validator in a real Chrome worker.
+- Payment-form examples reject Cardano reward addresses and prefix validated EVM destinations.
+
 ## 0.3.0 - 2026-11-13
 
 ### Added

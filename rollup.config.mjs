@@ -9,22 +9,25 @@ const entries = {
     tron: 'src/validators/tron.ts', cosmos: 'src/validators/cosmos.ts', move: 'src/validators/move.ts',
     near: 'src/validators/near.ts', formatters: 'src/formatters/index.ts',
 };
-export default Object.entries(entries).flatMap(([name, input]) => [
+const plugins = () => [typescript({ declaration: false, declarationMap: false, sourceMap: false }), terser({ maxWorkers: 1 })];
+export default [
     {
-        input,
-        output: [
-            { file: `dist/${name}.mjs`, format: 'es' },
-            { file: `dist/${name}.cjs`, format: 'cjs', exports: 'named' },
-            ...(name === 'index' ? [{ file: 'dist/index.umd.js', format: 'umd', name: 'validator0x' }] : []),
-        ],
-        plugins: [typescript({ declaration: false, declarationMap: false, sourceMap: false }), terser({ maxWorkers: 1 })],
+        input: entries,
+        preserveEntrySignatures: 'strict',
+        output: ['es', 'cjs'].map(format => {
+            const ext = format === 'es' ? 'mjs' : 'cjs';
+            return { dir: 'dist', format, exports: 'named', entryFileNames: `[name].${ext}`, chunkFileNames: `shared/[name]-[hash].${ext}` };
+        }),
+        plugins: plugins(),
     },
-    ...(name === 'index' ? [{
-        input,
-        output: [
-            { file: `dist/${name}.d.mts`, format: 'es' },
-            { file: `dist/${name}.d.cts`, format: 'es' },
-        ],
+    {
+        input: entries.index,
+        output: { file: 'dist/index.umd.js', format: 'umd', name: 'validator0x' },
+        plugins: plugins(),
+    },
+    {
+        input: entries.index,
+        output: ['mts', 'cts'].map(ext => ({ file: `dist/index.d.${ext}`, format: 'es' })),
         plugins: [dts()],
-    }] : []),
-]);
+    },
+];

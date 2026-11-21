@@ -29,7 +29,7 @@ export function validateBatch(
     options?: ValidationOptions
 ): ValidationResult[] {
     const validator = getValidator(blockchain);
-    return addresses.map(addr => validator.validate(addr, options));
+    return Array.from(addresses, addr => validator.validate(addr, options));
 }
 
 export function formatAddress(

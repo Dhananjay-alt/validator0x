@@ -6,7 +6,7 @@ Validation checks address encoding, payload structure, and checksums where the f
 
 ## Install and use
 
-**0.3.0 is published on npm.** Use `npm install validator0x@0.3.0` to pin this release, or install `validator0x` for the latest version. See [migration notes](./CHANGELOG.md) before upgrading from 0.2.x.
+Install `validator0x` for the latest published release. See [migration notes](./CHANGELOG.md) before upgrading from 0.2.x.
 
 ```sh
 npm install validator0x
@@ -44,7 +44,7 @@ const { validateAddress } = require('validator0x');
 Keep chain selection explicit. For an API request or form whose values are not already typed, validate the chain before validating the address:
 
 ```ts
-import { isSupportedChain, validateAddress } from 'validator0x';
+import { EVM_CHAINS, isSupportedChain, validateAddress } from 'validator0x';
 
 export function checkRecipient(address: unknown, chain: unknown) {
   if (!isSupportedChain(chain)) {
@@ -54,7 +54,13 @@ export function checkRecipient(address: unknown, chain: unknown) {
   if (!result.valid || typeof address !== 'string') {
     return { ok: false as const, error: result.error ?? 'Invalid address' };
   }
-  return { ok: true as const, address: address.trim(), chain };
+  if (chain === 'cardano' && result.details?.format === 'stake') {
+    return { ok: false as const, error: 'Choose a Cardano payment address' };
+  }
+  const trimmed = address.trim();
+  const isEvm = EVM_CHAINS.some(candidate => candidate === chain);
+  const destination = isEvm && !trimmed.startsWith('0x') ? '0x' + trimmed : trimmed;
+  return { ok: true as const, address: destination, chain };
 }
 ```
 
@@ -113,7 +119,7 @@ All direct imports support ESM, CommonJS, and TypeScript:
 
 For example, `new CosmosValidator('osmosis')` or `new EvmValidator('sonic')`. Existing validator classes, including `PolygonValidator`, remain available from the root import.
 
-The full minified ESM bundle is approximately **6.8 kB gzip**, and the Solana-only entry approximately **1.2 kB gzip**. `npm run test:package` prints exact sizes and enforces budgets of 12 kB and 3 kB respectively. Runtime dependencies, RPC requests, polyfills, and chain SDKs: **none**. Root imports include the chain registry; direct imports exclude unrelated validators.
+The full minified ESM bundle is approximately **7.2 kB gzip**, and the Solana-only entry approximately **1.2 kB gzip**. `npm run test:package` prints exact sizes and enforces budgets of 12 kB and 3 kB respectively. Runtime dependencies, RPC requests, polyfills, and chain SDKs: **none**. These sizes include shared modules. Root and family imports share validator constructors within each module format.
 
 ## Supported address formats
 
@@ -188,6 +194,8 @@ Formatting is for display, not validation. Never send to a shortened address. `s
 
 ## Development and verification
 
+The packed browser test uses an installed Google Chrome stable browser. On a development host without Chrome, install it with `npx playwright-core install chrome` after `npm ci`.
+
 ```sh
 npm ci
 npm run check          # lint, type checks, tests, build, differential and packed-consumer checks
@@ -201,7 +209,7 @@ For maintainers, `npm run prepare:release` runs the release checks and creates t
 
 Tests include the complete native witness vectors from [BIP-350](https://bips.dev/350/), Shelley/stake vectors from [CIP-19](https://cips.cardano.org/cip/CIP-19), and EIP-55 checksum cases. Differential checks compare SHA-256 to Node crypto, Keccak-256 to `@noble/hashes`, and Base58/Bech32 to `@scure/base` across block boundaries, address versions, payload lengths, and malformed cases. Reference libraries are development-only dependencies.
 
-Package checks install the actual tarball into a temporary consumer and verify all ESM/CommonJS entrypoints, TypeScript NodeNext/Bundler/legacy resolution, and UMD execution without Node globals. CI runs on Linux and Windows with Node 22, 24, and 26. Local checks do not substitute for executing that CI matrix.
+Package checks install the actual tarball into a temporary consumer and verify all ESM/CommonJS entrypoints, TypeScript NodeNext/Bundler/legacy resolution, UMD execution without Node globals, and a bundled Solana ESM consumer in a real Chrome module worker. CI runs on Linux and Windows with Node 22, 24, and 26. Local checks do not substitute for executing that CI matrix.
 
 The development-only `minimatch` override selects the patched 11.x release for the lint dependency tree; remove it once upstream ranges include the fix. Runtime consumers do not install it.
 

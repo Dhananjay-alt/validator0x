@@ -41,7 +41,7 @@ export class CardanoValidator extends AddressValidator {
                 if (offset >= bytes.length || offset - start >= 10) return false;
                 value = (value << 7n) | BigInt(bytes[offset] & 127);
             } while ((bytes[offset++] & 128) !== 0);
-            if ((offset - start > 1 && bytes[start] === 128) || value > 0xffffffffffffffffn) return false;
+            if ((offset - start > 1 && bytes[start] === 128) || value > (field === 0 ? 0xffffffffn : 0xffffn)) return false;
         }
         return offset === bytes.length;
     }

@@ -92,6 +92,18 @@ for (const payload of [Uint8Array.from([0x61, ...bytes(28)]), Uint8Array.from([0
     equal(validateAddress(bech32.encode(wrongHrp, bech32.toWords(payload)), 'cardano').valid, false, 'Cardano network/header mismatch');
     equal(validateAddress(bech32m.encode('addr', bech32.toWords(payload)), 'cardano').valid, false, 'Cardano Bech32m');
 }
+// Strict ledger pointer widths: slot (32), transaction index (16), certificate index (16).
+const maxSlot = [143, 255, 255, 255, 127];
+const maxIndex = [131, 255, 127];
+for (const [fields, valid] of [
+    [[...maxSlot, ...maxIndex, ...maxIndex], true],
+    [[144, 128, 128, 128, 0, 0, 0], false],
+    [[0, 132, 128, 0, 0], false],
+    [[0, 0, 132, 128, 0], false],
+]) {
+    const payload = Uint8Array.from([0x41, ...bytes(28), ...fields]);
+    equal(validateAddress(bech32.encode('addr', bech32.toWords(payload)), 'cardano').valid, valid, 'Pointer field bounds');
+}
 for (const pointer of [[0], [0, 0], [0, 0, 0, 0], [128, 0, 0, 0], [...new Array(11).fill(255), 0, 0, 0]]) {
     const payload = Uint8Array.from([0x41, ...bytes(28), ...pointer]);
     equal(validateAddress(bech32.encode('addr', bech32.toWords(payload), 256), 'cardano').valid, false, 'Malformed pointer');

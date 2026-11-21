@@ -20,7 +20,7 @@ This file serves two audiences: agents integrating the installed npm package, an
 ### Safe dynamic-input example
 
 ```ts
-import { isSupportedChain, validateAddress } from 'validator0x';
+import { EVM_CHAINS, isSupportedChain, validateAddress } from 'validator0x';
 
 export function checkRecipient(input: unknown, chain: unknown) {
   if (!isSupportedChain(chain)) {
@@ -31,7 +31,13 @@ export function checkRecipient(input: unknown, chain: unknown) {
     return { ok: false as const, error: result.error ?? 'Invalid address' };
   }
   // The application must separately verify the selected asset and actual network.
-  return { ok: true as const, address: input.trim(), chain };
+  if (chain === 'cardano' && result.details?.format === 'stake') {
+    return { ok: false as const, error: 'Choose a Cardano payment address' };
+  }
+  const trimmed = input.trim();
+  const isEvm = EVM_CHAINS.some(candidate => candidate === chain);
+  const destination = isEvm && !trimmed.startsWith('0x') ? '0x' + trimmed : trimmed;
+  return { ok: true as const, address: destination, chain };
 }
 ```
 
