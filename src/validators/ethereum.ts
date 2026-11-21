@@ -23,12 +23,12 @@ export class EthereumValidator extends AddressValidator {
             return { valid: false, error: 'Burn address detected', details: { errorCode: ValidationError.BURN_ADDRESS } };
         }
 
-        const checksum = this.isChecksummed(cleanAddress);
-        // Mixed-case input always claims a checksum; strict mode also checks uniform case.
-        if (options?.strict || (cleanAddress !== cleanAddress.toLowerCase() && cleanAddress !== cleanAddress.toUpperCase())) {
-            if (!checksum) {
-                return { valid: false, error: 'Invalid checksum', details: { errorCode: ValidationError.INVALID_CHECKSUM } };
-            }
+        // Uniform-case input carries no checksum, so outside strict mode skip the Keccak hash.
+        // Without hex letters the address equals its EIP-55 form, so the checksum trivially holds.
+        const mixedCase = cleanAddress !== cleanAddress.toLowerCase() && cleanAddress !== cleanAddress.toUpperCase();
+        const checksum = options?.strict || mixedCase ? this.isChecksummed(cleanAddress) : !/[a-fA-F]/.test(cleanAddress);
+        if (!checksum && (options?.strict || mixedCase)) {
+            return { valid: false, error: 'Invalid checksum', details: { errorCode: ValidationError.INVALID_CHECKSUM } };
         }
 
         return {

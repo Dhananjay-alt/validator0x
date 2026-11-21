@@ -103,3 +103,24 @@ describe('Ethereum Validator', () => {
         });
     });
 });
+
+describe('EIP-55 checksum reporting', () => {
+    // 0x52908400098527886E0F7030069857D2E4169EE7 is an EIP-55 vector whose letters are all uppercase.
+    const upperVector = '0x52908400098527886E0F7030069857D2E4169EE7';
+    const digitsOnly = '0x' + '1234567890'.repeat(4);
+
+    test('strict mode still verifies uniform-case input against EIP-55', () => {
+        expect(validateAddress(upperVector, 'ethereum', { strict: true })).toMatchObject({ valid: true, details: { checksum: true } });
+        expect(validateAddress(upperVector.toLowerCase(), 'ethereum', { strict: true }).valid).toBe(false);
+    });
+
+    test('non-strict uniform-case input is accepted without claiming a verified checksum', () => {
+        expect(validateAddress(upperVector, 'ethereum')).toMatchObject({ valid: true, details: { checksum: false } });
+        expect(validateAddress(upperVector.toLowerCase(), 'ethereum')).toMatchObject({ valid: true, details: { checksum: false } });
+    });
+
+    test('addresses without hex letters are trivially checksummed', () => {
+        expect(validateAddress(digitsOnly, 'ethereum')).toMatchObject({ valid: true, details: { checksum: true } });
+        expect(validateAddress(digitsOnly, 'ethereum', { strict: true })).toMatchObject({ valid: true, details: { checksum: true } });
+    });
+});
