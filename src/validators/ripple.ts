@@ -33,7 +33,7 @@ export class RippleValidator extends AddressValidator {
                 return { valid: false, error: 'Invalid checksum', details: { errorCode: ValidationError.INVALID_CHECKSUM } };
             }
 
-            return { valid: true, blockchain: 'ripple' };
+            return { valid: true, blockchain: 'ripple', details: { format: 'classic', checksum: true } };
         } catch {
             return { valid: false, error: 'Invalid characters', details: { errorCode: ValidationError.INVALID_CHARACTERS } };
         }

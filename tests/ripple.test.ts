@@ -7,6 +7,16 @@ describe('Ripple Validator', () => {
         expect(validateAddress('rG1QQv2nh2gr7RCZ1P8YYcBUKCCN633jCn', 'ripple').valid).toBe(true);
     });
 
+    it('reports the classic format and verified checksum like other Base58Check chains', () => {
+        expect(validateAddress('rPEPPER7kfTD9w2To4CQk6UCfuHM9c6GDY', 'ripple')).toEqual({
+            valid: true, blockchain: 'ripple', details: { format: 'classic', checksum: true },
+        });
+    });
+
+    it('rejects X-addresses, which are not supported', () => {
+        expect(validateAddress('X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ', 'ripple').valid).toBe(false);
+    });
+
     it('rejects invalid ripple address', () => {
         // Missing 'r'
         expect(validateAddress('G1QQv2nh2gr7RCZ1P8YYcBUKCCN633jCn', 'ripple').valid).toBe(false);

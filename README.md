@@ -132,7 +132,7 @@ The full minified ESM bundle is approximately **7.2 kB gzip**, and the Solana-on
 | `dogecoin` | Base58Check P2PKH/P2SH; mainnet and testnet |
 | `solana` | Base58 decoding to exactly 32 bytes, including program addresses and PDAs |
 | `cardano` | Shelley base, enterprise, pointer, and stake addresses; header/network/length/padding checks; Byron CBOR envelope and CRC32 |
-| `ripple` | XRP classic account addresses with the XRP Base58 alphabet and checksum |
+| `ripple` | XRP classic account addresses with the XRP Base58 alphabet and checksum; X-addresses (XLS-5d) are not supported |
 | `tron` | 34-character Base58Check or 42-character hex beginning with `41` |
 | `cosmos`, `osmosis`, `sei` | Bech32 account prefixes `cosmos`, `osmo`, `sei`; 20- or 32-byte payloads |
 | `celestia`, `injective` | Bech32 account prefixes `celestia`, `inj`; 20-byte payloads |
