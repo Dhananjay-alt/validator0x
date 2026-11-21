@@ -5,6 +5,7 @@
 ### Changed
 
 - An invalid `network` option (anything other than `'mainnet'`, `'testnet'`, or `'auto'`) throws a `RangeError` instead of reporting `NETWORK_MISMATCH`. Validation, batch validation, and detection check the option before reading input, so empty batches and empty or unsafe input throw too.
+- EVM input with a second `0x` inside the 40 hex digits (for example `0x0x` followed by 38 digits) is rejected with `INVALID_CHARACTERS`, like other non-hex characters. It was previously rejected with `INVALID_FORMAT` when checksum computation threw.
 - Valid Ripple results include `details: { format: 'classic', checksum: true }`.
 - Outside strict mode, uniform-case EVM addresses are accepted without hashing. `details.checksum` is `true` only for a verified mixed-case checksum or an address without hex letters.
 
