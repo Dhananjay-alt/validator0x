@@ -156,7 +156,7 @@ validateAddress(address, chain, {
 ```
 
 - `strict` defaults to `false`. On EVM, `true` requires the exact EIP-55 capitalization, including the rare valid all-lowercase/all-uppercase checksums. Invalid mixed-case EVM checksums are always rejected. On Aptos, strict mode requires lowercase AIP-40 canonical representation. Other formats always verify their mandatory checksums.
-- `network` defaults to `auto`. It filters networks **only when encoded in the address**, currently Bitcoin, Litecoin, Dogecoin, and Cardano. `details.network` is omitted for formats that cannot identify mainnet/testnet. Selecting a network never proves an address belongs to it.
+- `network` defaults to `auto` (`undefined` and `null` also mean `auto`). Any other value than `'mainnet'`, `'testnet'`, or `'auto'` throws a `RangeError` from `validateAddress`, `validateBatch`, `detectBlockchain`, and validator `validate` methods. The option is checked before any input is read, so an empty batch or empty, blank, or unsafe input still throws. It filters networks **only when encoded in the address**, currently Bitcoin, Litecoin, Dogecoin, and Cardano. `details.network` is omitted for formats that cannot identify mainnet/testnet. Selecting a network never proves an address belongs to it.
 - `allowTestnet: false` rejects identifiable testnet addresses, including when `network: 'testnet'` is also supplied. It is not an on-chain network check.
 - `allowBurnAddress` defaults to `false` and controls only the EVM all-zero address. It is not a comprehensive burn-address database. Other reserved/program addresses may be syntactically valid.
 
