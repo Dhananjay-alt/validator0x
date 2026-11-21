@@ -35,6 +35,17 @@ describe('Network policy', () => {
         }
     });
 
+    test.each(['foo', 'Mainnet', '', null, 1])('throws RangeError for invalid network option %j', network => {
+        const options = { network } as never;
+        expect(() => validateAddress(mainnet, 'bitcoin', options)).toThrow(RangeError);
+        expect(() => validateAddress(evm, 'ethereum', options)).toThrow('Invalid network option');
+        expect(() => validateBatch([mainnet], 'bitcoin', options)).toThrow(RangeError);
+    });
+
+    test('an explicit undefined network behaves like auto', () => {
+        expect(validateAddress(testnet, 'bitcoin', { network: undefined }).valid).toBe(true);
+    });
+
     test('batch validation applies the same policy to every entry', () => {
         expect(validateBatch([mainnet, testnet, 42], 'bitcoin', { network: 'mainnet' }).map(result => result.details?.errorCode))
             .toEqual([undefined, ValidationError.NETWORK_MISMATCH, ValidationError.UNSAFE_INPUT]);

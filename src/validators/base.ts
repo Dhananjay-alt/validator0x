@@ -8,16 +8,21 @@ export abstract class AddressValidator {
      * @param options - Validation options
      */
     public validate(address: unknown, options?: ValidationOptions): ValidationResult {
+        // Options come from the caller, not the user: a typo must fail loudly, not as NETWORK_MISMATCH.
+        const network = options?.network;
+        if (network !== undefined && network !== 'mainnet' && network !== 'testnet' && network !== 'auto') {
+            throw new RangeError(`Invalid network option: ${String(network)} (expected 'mainnet', 'testnet' or 'auto')`);
+        }
         try {
             // Security: Sanitize input first
             const safeAddress = InputSanitizer.sanitize(address);
 
             // Perform validation on sanitized input
             const result = this.validateImplementation(safeAddress, options);
-            const network = result.details?.network;
-            if (result.valid && network && (
-                (options?.network && options.network !== 'auto' && options.network !== network) ||
-                (options?.allowTestnet === false && network === 'testnet')
+            const encoded = result.details?.network;
+            if (result.valid && encoded && (
+                (network && network !== 'auto' && network !== encoded) ||
+                (options?.allowTestnet === false && encoded === 'testnet')
             )) {
                 return { valid: false, error: 'Address network does not match the requested network', details: { ...result.details, errorCode: ValidationError.NETWORK_MISMATCH } };
             }
