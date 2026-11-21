@@ -94,3 +94,41 @@ describe('Public API safety and options', () => {
         expect(() => addChecksum('0xxyz', 'ethereum')).toThrow();
     });
 });
+
+describe('EVM hex format (regression: repeated 0x prefix)', () => {
+    const digits = '1'.repeat(38);
+    const malformed = [
+        '0x0x' + digits,
+        '0x0X' + digits,
+        '0x0x' + 'ab'.repeat(19),
+        '0x0x' + 'AB'.repeat(19),
+        '0x0x0x' + '1'.repeat(36),
+        '00x' + '1'.repeat(39),
+        '0x' + '1'.repeat(20) + '0x' + '1'.repeat(18),
+        '0x' + '1'.repeat(39) + 'x',
+    ];
+
+    test.each(malformed)('rejects %s in every mode and on every EVM chain', address => {
+        for (const options of [undefined, { strict: true }, { allowBurnAddress: true }]) {
+            for (const chain of EVM_CHAINS) {
+                const result = validateAddress(address, chain, options);
+                expect(result.valid).toBe(false);
+                expect([ValidationError.INVALID_LENGTH, ValidationError.INVALID_CHARACTERS]).toContain(result.details?.errorCode);
+            }
+        }
+        expect(detectBlockchain(address)).toBeNull();
+    });
+
+    test('reports the reported input as invalid characters, not a checksum result', () => {
+        expect(validateAddress('0x0x' + digits, 'ethereum')).toEqual({ valid: false, error: 'Invalid hex characters', details: { errorCode: ValidationError.INVALID_CHARACTERS } });
+    });
+
+    test('still accepts 40 hex digits with or without one prefix', () => {
+        const checksummed = '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045';
+        for (const address of [checksummed, checksummed.slice(2), checksummed.toLowerCase(), checksummed.slice(2).toLowerCase(), '0x' + '1'.repeat(40), '1'.repeat(40)]) {
+            expect(validateAddress(address, 'ethereum').valid).toBe(true);
+            expect(detectBlockchain(address)).toEqual(expect.arrayContaining([...EVM_CHAINS]));
+        }
+        expect(validateAddress('0x' + '1'.repeat(40), 'ethereum', { strict: true })).toMatchObject({ valid: true, details: { checksum: true } });
+    });
+});
