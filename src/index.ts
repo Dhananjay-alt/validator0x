@@ -13,6 +13,7 @@ import { shortenAddress, normalizeAddress, addChecksum } from './formatters/inde
 import { BlockchainType, ValidationResult, ValidationOptions, FormatOptions } from './types';
 
 import { getValidator } from './registry';
+import { assertValidationOptions } from './validators/base';
 
 export function validateAddress(
     address: unknown,
@@ -29,6 +30,8 @@ export function validateBatch(
     options?: ValidationOptions
 ): ValidationResult[] {
     const validator = getValidator(blockchain);
+    // Check options even for an empty batch, so misconfiguration does not depend on the input.
+    assertValidationOptions(options);
     return Array.from(addresses, addr => validator.validate(addr, options));
 }
 

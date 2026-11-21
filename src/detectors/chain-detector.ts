@@ -1,9 +1,12 @@
 import { BlockchainType, ValidationOptions, EVM_CHAINS } from '../types';
 import { SUPPORTED_CHAINS, getValidator } from '../registry';
 import { InputSanitizer } from '../security/sanitizer';
+import { assertValidationOptions } from '../validators/base';
 
 /** Format candidates only: never use detection as proof of a destination's chain. */
 export function detectBlockchain(address: unknown, options?: ValidationOptions): BlockchainType | BlockchainType[] | null {
+    // Check options before the input, so empty or unsafe input cannot hide a misconfiguration.
+    assertValidationOptions(options);
     let safe: string;
     try { safe = InputSanitizer.sanitize(address); } catch { return null; }
     if (!safe) return null;

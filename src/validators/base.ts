@@ -1,6 +1,17 @@
 import { ValidationResult, ValidationOptions, FormatOptions, ValidationError } from '../types';
 import { InputSanitizer } from '../security/sanitizer';
 
+/**
+ * Options come from the caller, not the end user, so a typo fails loudly instead of as NETWORK_MISMATCH.
+ * Every public entry point calls this before reading input, so the error does not depend on the data.
+ */
+export function assertValidationOptions(options?: ValidationOptions): void {
+    const network = options?.network;
+    if (network != null && network !== 'mainnet' && network !== 'testnet' && network !== 'auto') {
+        throw new RangeError(`Invalid network option: ${String(network)} (expected 'mainnet', 'testnet' or 'auto')`);
+    }
+}
+
 export abstract class AddressValidator {
     /**
      * Validates an address.
@@ -8,6 +19,7 @@ export abstract class AddressValidator {
      * @param options - Validation options
      */
     public validate(address: unknown, options?: ValidationOptions): ValidationResult {
+        assertValidationOptions(options);
         try {
             // Security: Sanitize input first
             const safeAddress = InputSanitizer.sanitize(address);
